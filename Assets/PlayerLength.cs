@@ -7,6 +7,9 @@ public class PlayerLength : NetworkBehaviour
     [SerializeField] private GameObject ballTail;
     public NetworkVariable<ushort> length = new(1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // event for when the length changes
+    public static event System.Action<ushort> ChangedLengthEvent;
+
     private List<GameObject> tails;
     private Transform lastTail;
     private Collider2D collider2d;
@@ -17,22 +20,41 @@ public class PlayerLength : NetworkBehaviour
         tails = new List<GameObject>();
         lastTail = transform;
         collider2d = GetComponent<Collider2D>();
-        if (!IsServer) length.OnValueChanged += LengthChanged;
+
+        if (!IsServer)
+        {
+            length.OnValueChanged += LengthChangedEvent;
+        }
     }
 
+    //adds player's length
     [ContextMenu("Add Length")]
     public void AddLength()
     {
         length.Value += 1;
-        InstantiateTail();
+        LengthChanged();
     }
 
-    private void LengthChanged(ushort previousValue, ushort newValue)
+    //notifies when length is changed.
+    private void LengthChanged()
+    {
+        InstantiateTail();
+
+        if (!IsOwner)
+        {
+            return;
+        }
+        ChangedLengthEvent?.Invoke(length.Value);
+    }
+
+    // changes tail length
+    private void LengthChangedEvent(ushort previousValue, ushort newValue)
     {
         Debug.Log("Length Changed.");
-        InstantiateTail();
+        LengthChanged();
     }
 
+    // Makes another tail
     private void InstantiateTail()
     {
         GameObject tailObject = Instantiate(ballTail, transform.position, Quaternion.identity);
@@ -42,7 +64,7 @@ public class PlayerLength : NetworkBehaviour
         {
             tail.networkedOwner = transform;
             tail.followTransform = lastTail;
-            lastTail = tailObject.transform; // Update to use the instantiated tailObject's transform
+            lastTail = tailObject.transform;
             Physics2D.IgnoreCollision(tailObject.GetComponent<Collider2D>(), collider2d);
         }
 

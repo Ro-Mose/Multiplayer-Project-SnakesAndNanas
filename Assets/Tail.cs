@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class Tail : MonoBehaviour
 {
-    public Transform networkedOwner;    // Reference to the player's transform (or head)
-    public Transform followTransform;   // The tail that this tail follows
+    public Transform networkedOwner; 
+    public Transform followTransform;
 
     [SerializeField] private float delayTime = 0.1f;
     [SerializeField] private float distance = 0.5f;
@@ -13,7 +13,6 @@ public class Tail : MonoBehaviour
 
     private void Update()
     {
-        // Make sure the followTransform is updated properly
         if (followTransform != null)
         {
             targetPosition = followTransform.position - followTransform.forward * distance;
@@ -24,9 +23,11 @@ public class Tail : MonoBehaviour
         }
     }
 
-    // Method to set up the tail following behavior (for new tails)
     public void SetFollowTransform(Transform newFollowTransform)
     {
-        followTransform = newFollowTransform;
+        if (newFollowTransform != null)
+        {
+            followTransform = newFollowTransform;
+        }
     }
 }

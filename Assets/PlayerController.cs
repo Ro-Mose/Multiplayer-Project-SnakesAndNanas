@@ -7,39 +7,46 @@ namespace SnakesAndNanas
     public class PlayerController : NetworkBehaviour
     {
         public NetworkVariable<Vector3> Position = new NetworkVariable<Vector3>();
+        public NetworkVariable<Quaternion> Rotation = new NetworkVariable<Quaternion>();
 
-        [SerializeField] private float speed = 3f; // Adjusted speed
+        //movement speed
+        [SerializeField] private float speed = 3f;
         private Vector2 movementInput;
-        private PlayerLength playerLength;
+        private PlayerLength playersLength;
 
         private readonly ulong[] targetClientsArray = new ulong[1];
 
         public static event System.Action GameOverEvent;
 
+        //sets up player length
         private void Initialize()
         {
-            playerLength = GetComponent<PlayerLength>();
+            playersLength = GetComponent<PlayerLength>();
         }
 
         public override void OnNetworkSpawn()
         {
+            Initialize();
             if (IsServer)
             {
-                Position.Value = transform.position; // Ensure correct initial sync
+                Position.Value = transform.position;
+                Rotation.Value = transform.rotation;
             }
-
             Position.OnValueChanged += OnStateChanged;
+            Rotation.OnValueChanged += OnRotationChanged;
         }
 
         public override void OnNetworkDespawn()
         {
             Position.OnValueChanged -= OnStateChanged;
+            Rotation.OnValueChanged -= OnRotationChanged;
         }
 
         private void Update()
         {
             if (!IsOwner || !Application.isFocused) return;
 
+            // Get movement input from the player
             movementInput.x = Input.GetAxisRaw("Horizontal");
             movementInput.y = Input.GetAxisRaw("Vertical");
 
@@ -47,6 +54,7 @@ namespace SnakesAndNanas
 
             if (moveDirection != Vector2.zero)
             {
+                //moves player to show on the server
                 RequestMoveServerRpc(moveDirection);
             }
         }
@@ -60,29 +68,36 @@ namespace SnakesAndNanas
             PlayerController player = GetPlayerByClientId(clientId);
             if (player == null) return;
 
+            // Calculate new position and rotation
             Vector3 newPosition = player.transform.position + (Vector3)(moveDirection * speed * Time.deltaTime);
             player.Position.Value = newPosition;
-
-            player.Move(newPosition, moveDirection);
-        }
-
-        private void Move(Vector3 newPosition, Vector2 moveDirection)
-        {
-            transform.position = newPosition;
 
             if (moveDirection != Vector2.zero)
             {
                 float angle = Mathf.Atan2(moveDirection.y, moveDirection.x) * Mathf.Rad2Deg - 90f;
-                transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+                Quaternion newRotation = Quaternion.Euler(0, 0, angle);
+                player.Rotation.Value = newRotation;
             }
+
+            player.Move(newPosition, player.Rotation.Value);
         }
 
+        private void Move(Vector3 newPosition, Quaternion newRotation)
+        {
+            transform.position = newPosition;
+            transform.rotation = newRotation;
+        }
+
+        // Update position on all clients
         private void OnStateChanged(Vector3 previous, Vector3 current)
         {
-            if (!IsOwner)
-            {
-                transform.position = Position.Value;
-            }
+            transform.position = current;
+        }
+
+        // Update rotation on all clients
+        private void OnRotationChanged(Quaternion previous, Quaternion current)
+        {
+            transform.rotation = current;
         }
 
         private PlayerController GetPlayerByClientId(ulong clientId)
@@ -94,7 +109,7 @@ namespace SnakesAndNanas
             return null;
         }
 
-        [ServerRpc]
+        [ServerRpc(RequireOwnership = false)]
         private void DeterminedCollisionWinnerServerRpc(PlayerData player1, PlayerData player2)
         {
             if (player1.Length > player2.Length)
@@ -107,7 +122,7 @@ namespace SnakesAndNanas
             }
         }
 
-        [ServerRpc]
+        [ServerRpc(RequireOwnership = false)]
         private void WinInformationServerRpc(ulong winner, ulong loser)
         {
             targetClientsArray[0] = winner;
@@ -153,7 +168,7 @@ namespace SnakesAndNanas
                 var player1 = new PlayerData()
                 {
                     Id = OwnerClientId,
-                    Length = this.playerLength?.length.Value ?? 0
+                    Length = playersLength.length.Value
                 };
 
                 var player2 = new PlayerData()

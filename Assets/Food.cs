@@ -3,22 +3,21 @@ using UnityEngine;
 
 public class Food : NetworkBehaviour
 {
-    [SerializeField] private AudioClip bananaEatSound; // The sound to play when the banana is eaten
-    private AudioSource audioSource; // AudioSource component for playing the sound
+    [SerializeField] private AudioClip bananaEatSound; 
+    private AudioSource audioSource; 
 
     private void Start()
     {
-        // Dynamically add an AudioSource if it's missing
+        // Get the AudioSource component
         audioSource = GetComponent<AudioSource>();
 
-        // If no AudioSource is found, add one
+        // If there's no AudioSource, add one
         if (audioSource == null)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        // Optionally, configure the AudioSource (like setting volume, loop, etc.)
-        audioSource.playOnAwake = false;  // Prevent it from playing right away
+        audioSource.playOnAwake = false;
     }
 
     private void OnTriggerEnter2D(Collider2D col)
@@ -33,29 +32,28 @@ public class Food : NetworkBehaviour
             return;
         }
 
+        //Player eats food increase length
         if (col.TryGetComponent(out PlayerLength playerLength))
         {
-            playerLength.AddLength();
+            playerLength.AddLength(); 
         }
 
-        // Call the ClientRpc to play the sound on the client
+        //Why isnt this working???
         PlayEatSoundClientRpc();
 
-        // Now despawn the banana object
+        //Removes banana
         NetworkObject.Despawn();
     }
 
-    // ClientRpc to play sound on the client who interacted with the food
     [ClientRpc]
     private void PlayEatSoundClientRpc()
     {
+        // Play the banana eating sound for all clients
         if (audioSource != null && bananaEatSound != null)
         {
-            audioSource.PlayOneShot(bananaEatSound);
-        }
-        else
-        {
-            Debug.LogError("AudioSource or AudioClip is missing in PlayEatSoundClientRpc.");
+            Debug.Log("Banana eaten sound play");
+            audioSource.clip = bananaEatSound;  
+            audioSource.Play();  // Play the sound (Why is it not working???)
         }
     }
 }
